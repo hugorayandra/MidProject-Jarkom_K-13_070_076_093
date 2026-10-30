@@ -13,9 +13,9 @@
 
 | No. | Nama Anggota | NRP |
 |---|---|---|
-| 1 | Muhammad Hugo Rayandra Esmid | 5027251076 |
-| 2 | Donnavie Aulia | 093 |
-| 3 | Sultan Ahmad | 070 |
+| 1 | Sultan Ahmad | 5027251070 |
+| 2 | Muhammad Hugo Rayandra E | 5027251076 |
+| 3 | Donnavie Aulia | 5027251093 |
 
 ---
 
@@ -807,6 +807,4 @@ Dengan demikian, bagian perancangan topologi, pengalamatan jaringan, dan static 
 
 ---
 
-**Kelompok 13 — Implementasi Jaringan Smart City Kota Surabaya**  
-**Mata Kuliah Komunikasi Data dan Jaringan Komputer**  
-**Semester Gasal 2026/2027**
+# SEMENTARA
