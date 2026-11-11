@@ -13,7 +13,7 @@
 
 | No. | Nama Anggota | NRP |
 |---|---|---|
-| 1 | Sultan Ahmad | 5027251070 |
+| 1 | Sultan Ahmad Maulana B| 5027251070 |
 | 2 | Muhammad Hugo Rayandra E | 5027251076 |
 | 3 | Donnavie Aulia | 5027251093 |
 
