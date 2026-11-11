@@ -9,7 +9,7 @@
 
 ---
 
-## 1. Identitas Kelompok
+## Identitas Kelompok
 
 | No. | Nama Anggota | NRP |
 |---|---|---|
@@ -19,43 +19,44 @@
 
 ---
 
-# 2. Deskripsi Proyek
+## Deskripsi Proyek
 
 Proyek ini bertujuan merancang dan membangun infrastruktur jaringan komputer untuk mendukung kebutuhan Smart City Kota Surabaya menggunakan Cisco Packet Tracer.
 
-Jaringan dirancang dengan menghubungkan beberapa wilayah melalui router pusat (R-PUSAT) dan router wilayah. Setiap wilayah memiliki subnet yang disesuaikan dengan kebutuhan host berdasarkan perhitungan VLSM.
+Jaringan dirancang dengan menghubungkan beberapa wilayah melalui router pusat (`R-PUSAT`) dan router wilayah. Setiap wilayah memiliki subnet yang disesuaikan dengan kebutuhan host berdasarkan perhitungan VLSM.
 
-Pada bagian pengerjaan ini, fokus implementasi meliputi:
+Cakupan implementasi pada dokumentasi ini disesuaikan dengan urutan soal Mid-Project:
 
-1. Perancangan topologi jaringan.
-2. Perhitungan dan pembagian alamat IP menggunakan VLSM.
-3. Konfigurasi interface router.
-4. Konfigurasi static routing antarwilayah.
-5. Konfigurasi default route menuju jaringan di atasnya atau jaringan luar.
-6. Pengujian konektivitas antarrouter dan antarwilayah.
+1. **Soal 1:** Perancangan Topologi Jaringan & Konfigurasi Interface Router
+2. **Soal 2:** Tabel Subnetting (VLSM)
+3. **Soal 3:** Static Routing & Pengujian Konektivitas
+4. *(Soal 4 & Soal 5 dilewati sementara — menunggu penggabungan dokumentasi)*
+5. **Soal 6:** Tunnel GRE & Enkripsi IPsec (Bonus)
+6. **Soal 7:** Dynamic Routing OSPF & Uji Failover Link Cadangan L7
+7. **Soal 8:** Layanan Aplikasi Smart City (`k13.smartcity.lab` — DNS, Web, FTP, Email)
 
 ---
 
-# 3. Perancangan Topologi Jaringan
+# 1. Perancangan Topologi (Soal 1)
 
-## 3.1 Gambaran Topologi
+## 1.1 Gambaran Topologi
 
-Topologi jaringan menggunakan pendekatan hierarki dengan R-PUSAT sebagai router utama yang menghubungkan seluruh router wilayah.
+Topologi jaringan menggunakan pendekatan hierarki dengan `R-PUSAT` sebagai router utama yang menghubungkan seluruh router wilayah.
 
 Router yang digunakan:
 
-1. R-PUSAT
-2. R-DC
-3. R-UTARA
-4. R-TIMUR
-5. R-SELATAN
-6. R-BARAT
-7. R-PELABUHAN
-8. R-ISP
+1. `R-PUSAT`
+2. `R-DC`
+3. `R-UTARA`
+4. `R-TIMUR`
+5. `R-SELATAN`
+6. `R-BARAT`
+7. `R-PELABUHAN`
+8. `R-ISP`
 
 Setiap router wilayah terhubung dengan switch yang menghubungkan perangkat pengguna, server, dan perangkat pendukung.
 
-## 3.2 Pembagian Wilayah
+## 1.2 Pembagian Wilayah
 
 | Router | Wilayah | Jaringan/Layanan |
 |---|---|---|
@@ -68,7 +69,7 @@ Setiap router wilayah terhubung dengan switch yang menghubungkan perangkat pengg
 | R-PELABUHAN | Pelabuhan | SCADA dan Kantor Pelabuhan |
 | R-ISP | Internet | Server internet 8.8.8.8 |
 
-## 3.3 Perangkat yang Digunakan
+## 1.3 Perangkat yang Digunakan
 
 | Perangkat | Fungsi |
 |---|---|
@@ -76,133 +77,29 @@ Setiap router wilayah terhubung dengan switch yang menghubungkan perangkat pengg
 | Switch Cisco 2960 | Menghubungkan perangkat dalam LAN |
 | PC-PT | Perangkat pengguna dan pengujian |
 | Server-PT | Server pada jaringan Data Center, Balai Kota, dan ISP |
-| Kabel Serial | Menghubungkan router melalui backbone |
-| Copper Straight-Through | Menghubungkan router, switch, dan end device |
+| Kabel Serial (HWIC-2T) | Menghubungkan router melalui backbone |
+| Copper Straight-Through / Cross-Over | Menghubungkan router, switch, dan end device |
 
-## 3.4 Alasan Pemilihan Topologi
+## 1.4 Alasan Pemilihan Topologi & Skema VLSM
 
-Topologi menggunakan pendekatan hierarki dengan R-PUSAT sebagai pusat distribusi jaringan.
+Topologi menggunakan pendekatan hierarki (*Star-Extended / Hierarchical*) dengan `R-PUSAT` sebagai pusat distribusi jaringan, serta skema pengalamatan **VLSM (*Variable Length Subnet Mask*)**.
 
-Pemilihan topologi ini didasarkan pada beberapa pertimbangan:
+Pertimbangan desain:
 
-- Memudahkan pengelolaan komunikasi antarwilayah.
-- Memisahkan jaringan berdasarkan lokasi dan kebutuhan layanan.
-- Mempermudah proses troubleshooting.
-- Memudahkan penerapan static routing.
-- Memungkinkan pengembangan jaringan apabila terdapat penambahan wilayah atau perangkat.
-- Memusatkan pengelolaan jalur komunikasi antarwilayah melalui R-PUSAT.
+- Memudahkan pengelolaan komunikasi antarwilayah melalui pusat kendali di Balai Kota (`R-PUSAT`).
+- Memisahkan jaringan berdasarkan lokasi geografis dan fungsi layanan (publik vs. kritikal/internal).
+- Skema **VLSM** dipilih karena kebutuhan jumlah host antar-subnet sangat bervariasi (mulai dari `/18` untuk 16.382 host pada WiFi Publik Utara hingga `/27` untuk 30 host pada Server Balai Kota dan `/30` untuk point-to-point antar-router), sehingga alokasi ruang alamat IP blok `10.104.0.0/16` menjadi sangat efisien tanpa pemborosan IP.
+- Penambahan modul port serial (`HWIC-2T`) dan port GigabitEthernet pada router disesuaikan dengan jumlah link backbone (`L1`–`L7`) dan jumlah LAN di setiap wilayah.
 
-## 3.5 Dokumentasi Topologi
+## 1.5 Gambar Topologi di Cisco Packet Tracer
 
-Lampirkan screenshot topologi Cisco Packet Tracer pada bagian ini.
+![Topologi Smart City Surabaya](docs/01-topologi/topologi-smart-city.jpg)
 
-Nama file yang disarankan:
+## 1.6 Konfigurasi Interface Router
 
-`docs/topologi-smart-city.png`
+### A. Konfigurasi `R-PUSAT`
 
-![Topologi Smart City Surabaya](docs/topologi-smart-city.png)
-
----
-
-# 4. Perancangan Pengalamatan IP (VLSM)
-
-## 4.1 Dasar Pengalamatan
-
-Pengalamatan jaringan menggunakan metode VLSM (Variable Length Subnet Mask).
-
-VLSM memungkinkan setiap subnet menggunakan prefix yang berbeda sesuai kebutuhan jumlah host. Dengan metode ini, penggunaan alamat IP menjadi lebih efisien dibandingkan penggunaan satu subnet mask untuk seluruh jaringan.
-
-Gateway setiap LAN menggunakan alamat host pertama dari subnet yang bersangkutan.
-
-## 4.2 Tabel Pengalamatan LAN
-
-Berikut pengalamatan LAN yang diterapkan pada topologi:
-
-| No. | Nama Subnet | Network ID | Prefix | Subnet Mask | Gateway |
-|---|---|---|---|---|---|
-| 1 | WiFi Utara | 10.104.0.0 | /18 | 255.255.192.0 | 10.104.0.1 |
-| 2 | WiFi Selatan | 10.104.64.0 | /19 | 255.255.224.0 | 10.104.64.1 |
-| 3 | CCTV Kota | 10.104.96.0 | /19 | 255.255.224.0 | 10.104.96.1 |
-| 4 | WiFi Timur | 10.104.128.0 | /19 | 255.255.224.0 | 10.104.128.1 |
-| 5 | SCADA Pelabuhan | 10.104.160.0 | /19 | 255.255.224.0 | 10.104.160.1 |
-| 6 | WiFi Barat | 10.104.192.0 | /19 | 255.255.224.0 | 10.104.192.1 |
-| 7 | Pegawai Balai Kota | 10.104.224.0 | /21 | 255.255.248.0 | 10.104.224.1 |
-| 8 | Sensor Lalu Lintas | 10.104.236.0 | /23 | 255.255.254.0 | 10.104.236.1 |
-| 9 | Sensor Banjir Timur | 10.104.232.0 | /22 | 255.255.252.0 | 10.104.232.1 |
-| 10 | Puskesmas Barat | 10.104.238.0 | /24 | 255.255.255.0 | 10.104.238.1 |
-| 11 | Server & Storage DC | 10.104.239.0 | /24 | 255.255.255.0 | 10.104.239.1 |
-| 12 | Kantor Pelabuhan | 10.104.240.0 | /25 | 255.255.255.128 | 10.104.240.1 |
-| 13 | PJU Pintar Selatan | 10.104.240.128 | /25 | 255.255.255.128 | 10.104.240.129 |
-| 14 | Server Balai Kota | 10.104.241.0 | /27 | 255.255.255.224 | 10.104.241.1 |
-
-**Catatan:** Tabel ini merupakan ringkasan pengalamatan yang digunakan dalam konfigurasi topologi. Jumlah host yang digunakan untuk perhitungan VLSM harus mengikuti kebutuhan host penuh dari hasil UTS kelompok.
-
-## 4.3 Tabel Rentang Host dan Broadcast
-
-| Nama Subnet | Network ID | Prefix | Host Pertama | Host Terakhir | Broadcast |
-|---|---|---|---|---|---|
-| WiFi Utara | 10.104.0.0 | /18 | 10.104.0.1 | 10.104.63.254 | 10.104.63.255 |
-| WiFi Selatan | 10.104.64.0 | /19 | 10.104.64.1 | 10.104.95.254 | 10.104.95.255 |
-| CCTV Kota | 10.104.96.0 | /19 | 10.104.96.1 | 10.104.127.254 | 10.104.127.255 |
-| WiFi Timur | 10.104.128.0 | /19 | 10.104.128.1 | 10.104.159.254 | 10.104.159.255 |
-| SCADA Pelabuhan | 10.104.160.0 | /19 | 10.104.160.1 | 10.104.191.254 | 10.104.191.255 |
-| WiFi Barat | 10.104.192.0 | /19 | 10.104.192.1 | 10.104.223.254 | 10.104.223.255 |
-| Pegawai Balai Kota | 10.104.224.0 | /21 | 10.104.224.1 | 10.104.231.254 | 10.104.231.255 |
-| Sensor Banjir Timur | 10.104.232.0 | /22 | 10.104.232.1 | 10.104.235.254 | 10.104.235.255 |
-| Sensor Lalu Lintas | 10.104.236.0 | /23 | 10.104.236.1 | 10.104.237.254 | 10.104.237.255 |
-| Puskesmas Barat | 10.104.238.0 | /24 | 10.104.238.1 | 10.104.238.254 | 10.104.238.255 |
-| Server & Storage DC | 10.104.239.0 | /24 | 10.104.239.1 | 10.104.239.254 | 10.104.239.255 |
-| Kantor Pelabuhan | 10.104.240.0 | /25 | 10.104.240.1 | 10.104.240.126 | 10.104.240.127 |
-| PJU Pintar Selatan | 10.104.240.128 | /25 | 10.104.240.129 | 10.104.240.254 | 10.104.240.255 |
-| Server Balai Kota | 10.104.241.0 | /27 | 10.104.241.1 | 10.104.241.30 | 10.104.241.31 |
-
-## 4.4 Pengalamatan Backbone Antarrouter
-
-Backbone antarrouter menggunakan subnet /30 karena setiap link point-to-point membutuhkan dua alamat host.
-
-| Link | Router 1 | IP Router 1 | Router 2 | IP Router 2 | Network |
-|---|---|---|---|---|---|
-| L1 | R-PUSAT | 10.104.241.33 | R-DC | 10.104.241.34 | 10.104.241.32/30 |
-| L2 | R-PUSAT | 10.104.241.37 | R-UTARA | 10.104.241.38 | 10.104.241.36/30 |
-| L3 | R-PUSAT | 10.104.241.41 | R-SELATAN | 10.104.241.42 | 10.104.241.40/30 |
-| L4 | R-PUSAT | 10.104.241.45 | R-TIMUR | 10.104.241.46 | 10.104.241.44/30 |
-| L5 | R-PUSAT | 10.104.241.49 | R-BARAT | 10.104.241.50 | 10.104.241.48/30 |
-| L6 | R-UTARA | 10.104.241.53 | R-PELABUHAN | 10.104.241.54 | 10.104.241.52/30 |
-
-## 4.5 Pengalamatan Link ISP
-
-Sesuai instruksi soal, link R-PUSAT ke R-ISP menggunakan:
-
-`203.0.113.(4 × K)/30`
-
-Dengan nomor kelompok K = 13:
-
-| Parameter | Nilai |
-|---|---|
-| Network | 203.0.113.52/30 |
-| R-PUSAT | 203.0.113.53 |
-| R-ISP | 203.0.113.54 |
-| Subnet Mask | 255.255.255.252 |
-
-Server internet:
-
-| Parameter | Nilai |
-|---|---|
-| Network | 8.8.8.0/24 |
-| IP Server | 8.8.8.8 |
-| Gateway | 8.8.8.1 |
-| Subnet Mask | 255.255.255.0 |
-
----
-
-# 5. Konfigurasi Interface Router
-
-## 5.1 Konfigurasi R-PUSAT
-
-R-PUSAT berfungsi sebagai router pusat yang menghubungkan seluruh wilayah.
-
-### Interface LAN
-
+#### Interface LAN
 ```cisco
 enable
 configure terminal
@@ -218,8 +115,7 @@ no shutdown
 exit
 ```
 
-### Interface Backbone
-
+#### Interface Backbone & ISP
 ```cisco
 interface serial 0/2/0
 ip address 10.104.241.33 255.255.255.252
@@ -245,15 +141,14 @@ interface serial 0/1/0
 ip address 10.104.241.49 255.255.255.252
 no shutdown
 exit
+
+interface serial 0/1/1
+ip address 203.0.113.53 255.255.255.252
+no shutdown
+exit
 ```
 
-### Pemeriksaan Interface
-
-```cisco
-show ip interface brief
-```
-
-## 5.2 Konfigurasi R-DC
+### B. Konfigurasi `R-DC`
 
 ```cisco
 enable
@@ -277,7 +172,7 @@ exit
 end
 ```
 
-## 5.3 Konfigurasi R-UTARA
+### C. Konfigurasi `R-UTARA`
 
 ```cisco
 enable
@@ -285,6 +180,11 @@ configure terminal
 
 interface gigabitEthernet 0/0
 ip address 10.104.0.1 255.255.192.0
+no shutdown
+exit
+
+interface gigabitEthernet 0/1
+ip address 10.104.236.1 255.255.254.0
 no shutdown
 exit
 
@@ -301,7 +201,7 @@ exit
 end
 ```
 
-## 5.4 Konfigurasi R-TIMUR
+### D. Konfigurasi `R-TIMUR`
 
 ```cisco
 enable
@@ -325,7 +225,7 @@ exit
 end
 ```
 
-## 5.5 Konfigurasi R-SELATAN
+### E. Konfigurasi `R-SELATAN`
 
 ```cisco
 enable
@@ -349,7 +249,7 @@ exit
 end
 ```
 
-## 5.6 Konfigurasi R-BARAT
+### F. Konfigurasi `R-BARAT`
 
 ```cisco
 enable
@@ -373,7 +273,7 @@ exit
 end
 ```
 
-## 5.7 Konfigurasi R-PELABUHAN
+### G. Konfigurasi `R-PELABUHAN`
 
 ```cisco
 enable
@@ -397,21 +297,83 @@ exit
 end
 ```
 
-## 5.8 Pemeriksaan Interface
+---
 
-Pada setiap router, jalankan:
+# 2. Tabel Subnetting — VLSM (Soal 2)
 
-```cisco
-show ip interface brief
-```
+## 2.1 Dasar Pengalamatan
 
-Interface yang telah dikonfigurasi harus menunjukkan status `up/up`.
+Pengalamatan jaringan menggunakan metode **VLSM (*Variable Length Subnet Mask*)** berdasarkan hasil perhitungan dan revisi UTS Kelompok 13. Gateway setiap LAN menggunakan alamat host pertama (`.1` atau `.129`) dari subnet yang bersangkutan.
+
+![Tabel VLSM Hasil Revisi](docs/02-vlsm/tabel-vlsm.jpg)
+
+## 2.2 Tabel Pengalamatan LAN
+
+| No. | Nama Subnet | Network ID | Prefix | Subnet Mask | Gateway |
+|---|---|---|---|---|---|
+| 1 | WiFi Utara | 10.104.0.0 | /18 | 255.255.192.0 | 10.104.0.1 |
+| 2 | WiFi Selatan | 10.104.64.0 | /19 | 255.255.224.0 | 10.104.64.1 |
+| 3 | CCTV Kota | 10.104.96.0 | /19 | 255.255.224.0 | 10.104.96.1 |
+| 4 | WiFi Timur | 10.104.128.0 | /19 | 255.255.224.0 | 10.104.128.1 |
+| 5 | SCADA Pelabuhan | 10.104.160.0 | /19 | 255.255.224.0 | 10.104.160.1 |
+| 6 | WiFi Barat | 10.104.192.0 | /19 | 255.255.224.0 | 10.104.192.1 |
+| 7 | Pegawai Balai Kota | 10.104.224.0 | /21 | 255.255.248.0 | 10.104.224.1 |
+| 8 | Sensor Banjir Timur | 10.104.232.0 | /22 | 255.255.252.0 | 10.104.232.1 |
+| 9 | Sensor Lalu Lintas | 10.104.236.0 | /23 | 255.255.254.0 | 10.104.236.1 |
+| 10 | Puskesmas Barat | 10.104.238.0 | /24 | 255.255.255.0 | 10.104.238.1 |
+| 11 | Server & Storage DC | 10.104.239.0 | /24 | 255.255.255.0 | 10.104.239.1 |
+| 12 | Kantor Pelabuhan | 10.104.240.0 | /25 | 255.255.255.128 | 10.104.240.1 |
+| 13 | PJU Pintar Selatan | 10.104.240.128 | /25 | 255.255.255.128 | 10.104.240.129 |
+| 14 | Server Balai Kota | 10.104.241.0 | /27 | 255.255.255.224 | 10.104.241.1 |
+
+## 2.3 Tabel Rentang Host dan Broadcast
+
+| Nama Subnet | Network ID | Prefix | Host Pertama | Host Terakhir | Broadcast |
+|---|---|---|---|---|---|
+| WiFi Utara | 10.104.0.0 | /18 | 10.104.0.1 | 10.104.63.254 | 10.104.63.255 |
+| WiFi Selatan | 10.104.64.0 | /19 | 10.104.64.1 | 10.104.95.254 | 10.104.95.255 |
+| CCTV Kota | 10.104.96.0 | /19 | 10.104.96.1 | 10.104.127.254 | 10.104.127.255 |
+| WiFi Timur | 10.104.128.0 | /19 | 10.104.128.1 | 10.104.159.254 | 10.104.159.255 |
+| SCADA Pelabuhan | 10.104.160.0 | /19 | 10.104.160.1 | 10.104.191.254 | 10.104.191.255 |
+| WiFi Barat | 10.104.192.0 | /19 | 10.104.192.1 | 10.104.223.254 | 10.104.223.255 |
+| Pegawai Balai Kota | 10.104.224.0 | /21 | 10.104.224.1 | 10.104.231.254 | 10.104.231.255 |
+| Sensor Banjir Timur | 10.104.232.0 | /22 | 10.104.232.1 | 10.104.235.254 | 10.104.235.255 |
+| Sensor Lalu Lintas | 10.104.236.0 | /23 | 10.104.236.1 | 10.104.237.254 | 10.104.237.255 |
+| Puskesmas Barat | 10.104.238.0 | /24 | 10.104.238.1 | 10.104.238.254 | 10.104.238.255 |
+| Server & Storage DC | 10.104.239.0 | /24 | 10.104.239.1 | 10.104.239.254 | 10.104.239.255 |
+| Kantor Pelabuhan | 10.104.240.0 | /25 | 10.104.240.1 | 10.104.240.126 | 10.104.240.127 |
+| PJU Pintar Selatan | 10.104.240.128 | /25 | 10.104.240.129 | 10.104.240.254 | 10.104.240.255 |
+| Server Balai Kota | 10.104.241.0 | /27 | 10.104.241.1 | 10.104.241.30 | 10.104.241.31 |
+
+## 2.4 Pengalamatan Backbone Antarrouter
+
+Backbone antarrouter menggunakan subnet `/30` karena setiap link point-to-point membutuhkan dua alamat host.
+
+| Link | Router 1 | IP Router 1 | Router 2 | IP Router 2 | Network |
+|---|---|---|---|---|---|
+| L1 | R-PUSAT | 10.104.241.33 | R-DC | 10.104.241.34 | 10.104.241.32/30 |
+| L2 | R-PUSAT | 10.104.241.37 | R-UTARA | 10.104.241.38 | 10.104.241.36/30 |
+| L3 | R-PUSAT | 10.104.241.41 | R-SELATAN | 10.104.241.42 | 10.104.241.40/30 |
+| L4 | R-PUSAT | 10.104.241.45 | R-TIMUR | 10.104.241.46 | 10.104.241.44/30 |
+| L5 | R-PUSAT | 10.104.241.49 | R-BARAT | 10.104.241.50 | 10.104.241.48/30 |
+| L6 | R-UTARA | 10.104.241.53 | R-PELABUHAN | 10.104.241.54 | 10.104.241.52/30 |
+| L7 *(OSPF)* | R-DC | 10.104.241.57 | R-UTARA | 10.104.241.58 | 10.104.241.56/30 |
+
+## 2.5 Pengalamatan Tambahan (Link ISP, Server Internet, & Tunnel GRE)
+
+Dengan nomor kelompok $K = 13$:
+
+| Keperluan | Network | Detail Alamat | Subnet Mask |
+|---|---|---|---|
+| **Link R-PUSAT ke R-ISP** | `203.0.113.52/30` | `R-PUSAT`: `203.0.113.53` \| `R-ISP`: `203.0.113.54` | `255.255.255.252` |
+| **Server Internet** | `8.8.8.0/24` | Server: `8.8.8.8` \| Gateway (`R-ISP`): `8.8.8.1` | `255.255.255.0` |
+| **Tunnel GRE** | `192.168.13.0/30` | `R-PUSAT`: `192.168.13.1` \| `R-PELABUHAN`: `192.168.13.2` | `255.255.255.252` |
 
 ---
 
-# 6. Konfigurasi Static Routing
+# 3. Static Routing (Soal 3)
 
-## 6.1 Tujuan Static Routing
+## 3.1 Tujuan Static Routing
 
 Static routing digunakan untuk menentukan jalur komunikasi antarjaringan secara manual.
 
@@ -419,12 +381,12 @@ Sesuai ketentuan soal:
 
 - Seluruh LAN harus dapat saling berkomunikasi menggunakan static route.
 - Default route hanya boleh mengarah ke router di atasnya atau ke luar.
-- R-PUSAT harus memiliki static route menuju seluruh LAN milik R-DC, R-UTARA, R-PELABUHAN, R-SELATAN, R-TIMUR, dan R-BARAT.
-- R-UTARA harus memiliki static route menuju seluruh LAN milik R-PELABUHAN.
+- `R-PUSAT` harus memiliki static route menuju seluruh LAN milik `R-DC`, `R-UTARA`, `R-PELABUHAN`, `R-SELATAN`, `R-TIMUR`, dan `R-BARAT`.
+- `R-UTARA` harus memiliki static route menuju seluruh LAN milik `R-PELABUHAN`.
 
-## 6.2 Static Route R-PUSAT
+## 3.2 Static Route `R-PUSAT`
 
-R-PUSAT perlu mengetahui jaringan yang berada di bawah setiap router wilayah.
+`R-PUSAT` perlu mengetahui jaringan yang berada di bawah setiap router wilayah:
 
 ```cisco
 enable
@@ -434,9 +396,10 @@ configure terminal
 ip route 10.104.96.0 255.255.224.0 10.104.241.34
 ip route 10.104.239.0 255.255.255.0 10.104.241.34
 
-! Jaringan R-UTARA dan R-PELABUHAN
+! Jaringan R-UTARA dan R-PELABUHAN (serta link transit L6)
 ip route 10.104.0.0 255.255.192.0 10.104.241.38
 ip route 10.104.236.0 255.255.254.0 10.104.241.38
+ip route 10.104.241.52 255.255.255.252 10.104.241.38
 ip route 10.104.160.0 255.255.224.0 10.104.241.38
 ip route 10.104.240.0 255.255.255.128 10.104.241.38
 
@@ -452,128 +415,65 @@ ip route 10.104.232.0 255.255.252.0 10.104.241.46
 ip route 10.104.192.0 255.255.224.0 10.104.241.50
 ip route 10.104.238.0 255.255.255.0 10.104.241.50
 
-end
-```
-
-## 6.3 Default Route R-DC
-
-R-DC meneruskan trafik menuju R-PUSAT.
-
-```cisco
-enable
-configure terminal
-
-ip route 0.0.0.0 0.0.0.0 10.104.241.33
-
-end
-```
-
-## 6.4 Default Route R-UTARA
-
-```cisco
-enable
-configure terminal
-
-ip route 0.0.0.0 0.0.0.0 10.104.241.37
-
-end
-```
-
-### Static Route R-UTARA menuju R-PELABUHAN
-
-Sesuai instruksi soal, R-UTARA harus memiliki static route menuju seluruh LAN milik R-PELABUHAN.
-
-```cisco
-ip route 10.104.160.0 255.255.224.0 10.104.241.54
-ip route 10.104.240.0 255.255.255.128 10.104.241.54
-```
-
-## 6.5 Default Route R-TIMUR
-
-```cisco
-enable
-configure terminal
-
-ip route 0.0.0.0 0.0.0.0 10.104.241.45
-
-end
-```
-
-## 6.6 Default Route R-SELATAN
-
-```cisco
-enable
-configure terminal
-
-ip route 0.0.0.0 0.0.0.0 10.104.241.41
-
-end
-```
-
-## 6.7 Default Route R-BARAT
-
-```cisco
-enable
-configure terminal
-
-ip route 0.0.0.0 0.0.0.0 10.104.241.49
-
-end
-```
-
-## 6.8 Default Route R-PELABUHAN
-
-```cisco
-enable
-configure terminal
-
-ip route 0.0.0.0 0.0.0.0 10.104.241.53
-
-end
-```
-
-## 6.9 Default Route R-PUSAT menuju ISP
-
-Sesuai instruksi soal, R-PUSAT harus meneruskan trafik ke jaringan luar melalui R-ISP.
-
-Untuk kelompok 13, gunakan:
-
-```cisco
-enable
-configure terminal
-
+! Default Route menuju R-ISP
 ip route 0.0.0.0 0.0.0.0 203.0.113.54
 
 end
 ```
 
-Link ISP menggunakan:
-- R-PUSAT: `203.0.113.53/30`
-- R-ISP: `203.0.113.54/30`
+## 3.3 Default Route & Static Route Router Wilayah
 
-Pastikan interface ISP dan R-PUSAT telah menggunakan alamat tersebut sebelum mengaktifkan default route ini.
-
-## 6.10 Pemeriksaan Tabel Routing
-
-Untuk memeriksa seluruh tabel routing:
-
+### A. `R-DC`
 ```cisco
-show ip route
+enable
+configure terminal
+ip route 0.0.0.0 0.0.0.0 10.104.241.33
+end
 ```
 
-Untuk melihat konfigurasi static route:
-
+### B. `R-UTARA` (Default Route ke `R-PUSAT` + Static Route ke `R-PELABUHAN`)
 ```cisco
-show running-config | include ip route
+enable
+configure terminal
+ip route 0.0.0.0 0.0.0.0 10.104.241.37
+ip route 10.104.160.0 255.255.224.0 10.104.241.54
+ip route 10.104.240.0 255.255.255.128 10.104.241.54
+end
 ```
 
----
+### C. `R-TIMUR`
+```cisco
+enable
+configure terminal
+ip route 0.0.0.0 0.0.0.0 10.104.241.45
+end
+```
 
-# 7. Pengujian Konektivitas
+### D. `R-SELATAN`
+```cisco
+enable
+configure terminal
+ip route 0.0.0.0 0.0.0.0 10.104.241.41
+end
+```
 
-Pengujian dilakukan untuk memastikan setiap router dapat berkomunikasi dengan router tetangga maupun jaringan lain.
+### E. `R-BARAT`
+```cisco
+enable
+configure terminal
+ip route 0.0.0.0 0.0.0.0 10.104.241.49
+end
+```
 
-## 7.1 Pengujian Backbone L1–L6
+### F. `R-PELABUHAN`
+```cisco
+enable
+configure terminal
+ip route 0.0.0.0 0.0.0.0 10.104.241.53
+end
+```
+
+## 3.4 Pengujian Konektivitas Static Routing
 
 | Link | Koneksi | Hasil Pengujian |
 |---|---|---|
@@ -584,227 +484,435 @@ Pengujian dilakukan untuk memastikan setiap router dapat berkomunikasi dengan ro
 | L5 | R-PUSAT ↔ R-BARAT | 100% |
 | L6 | R-UTARA ↔ R-PELABUHAN | 100% |
 
-Perintah pengujian:
+---
 
-```cisco
-ping <alamat-IP-router-tujuan>
-```
-
-## 7.2 Pengujian R-DC
-
-```cisco
-ping 10.104.241.33
-ping 10.104.224.1
-ping 10.104.239.1
-```
-
-Hasil pengujian: seluruh ping berhasil dengan tingkat keberhasilan 100%.
-
-## 7.3 Pengujian R-SELATAN
-
-```cisco
-ping 10.104.241.41
-ping 10.104.224.1
-ping 10.104.239.1
-```
-
-Hasil pengujian: seluruh ping berhasil dengan tingkat keberhasilan 100%.
-
-## 7.4 Pengujian R-TIMUR
-
-```cisco
-ping 10.104.241.45
-ping 10.104.224.1
-ping 10.104.239.1
-```
-
-Hasil pengujian: seluruh ping berhasil dengan tingkat keberhasilan 100%.
-
-## 7.5 Pengujian R-BARAT
-
-```cisco
-ping 10.104.241.49
-ping 10.104.224.1
-ping 10.104.239.1
-ping 10.104.241.34
-```
-
-Hasil pengujian: seluruh ping berhasil dengan tingkat keberhasilan 100%.
-
-## 7.6 Pengujian R-PELABUHAN
-
-```cisco
-ping 10.104.241.53
-ping 10.104.224.1
-ping 10.104.239.1
-ping 10.104.236.1
-```
-
-Pada pengujian awal, terdapat kendala komunikasi menuju jaringan Balai Kota dan Data Center. Setelah penambahan static route menuju subnet backbone L6 pada R-PUSAT, konektivitas berhasil mencapai 100%.
-
-Perintah perbaikan yang diterapkan:
-
-```cisco
-ip route 10.104.241.52 255.255.255.252 10.104.241.38
-```
-
-## 7.7 Pengujian ISP
-
-Pengujian koneksi ISP dilakukan dari R-ISP dan R-PUSAT.
-
-Dari R-ISP:
-
-```cisco
-ping 203.0.113.53
-ping 8.8.8.8
-```
-
-Dari R-PUSAT:
-
-```cisco
-ping 203.0.113.54
-ping 8.8.8.1
-ping 8.8.8.8
-```
-
-**Catatan:** Pengujian koneksi server internet sebelumnya berhasil menggunakan konfigurasi sementara. Konfigurasi transit harus disesuaikan terlebih dahulu dengan alamat resmi soal, yaitu 203.0.113.52/30, sebelum pengujian final.
+*(Catatan: Bagian **Soal 4 (DHCP)** dan **Soal 5 (NAT)** dilewati sementara sesuai pembagian pengerjaan dan akan ditambahkan oleh anggota terkait).*
 
 ---
 
-# 8. Troubleshooting
+# 6. Tunnel GRE & Enkripsi IPsec (Soal 6)
 
-Selama pengerjaan, terdapat beberapa kendala yang ditemukan dan diperbaiki.
+## 6.1 Desain dan Pengalamatan Tunnel GRE
 
-## 8.1 Interface Router Down
+Untuk menghubungkan jaringan **Balai Kota (`R-PUSAT`)** dan **Pelabuhan (`R-PELABUHAN`)** secara langsung secara logis (virtual point-to-point) melewati `R-UTARA`, dibangun **GRE Tunnel (`interface Tunnel0`)** dengan ketentuan pengalamatan Kelompok 13 ($K = 13$):
 
-**Masalah:** Interface router menunjukkan status `administratively down`.
-
-**Penyebab:** Interface belum diaktifkan.
-
-**Solusi:**
-
-```cisco
-configure terminal
-interface gigabitEthernet 0/1
-no shutdown
-```
-
-## 8.2 Static Route Belum Tersedia
-
-**Masalah:** R-PELABUHAN belum dapat menjangkau beberapa jaringan di Balai Kota dan Data Center.
-
-**Penyebab:** R-PUSAT belum memiliki jalur balik menuju subnet backbone L6.
-
-**Solusi:**
-
-```cisco
-ip route 10.104.241.52 255.255.255.252 10.104.241.38
-```
-
-Setelah konfigurasi ditambahkan, pengujian ping berhasil mencapai 100%.
-
-## 8.3 Penyesuaian Port Router
-
-Pada proses konfigurasi, beberapa interface harus disesuaikan dengan koneksi kabel fisik pada topologi Packet Tracer.
-
-Pemeriksaan dilakukan menggunakan:
-
-```cisco
-show ip interface brief
-```
-
-Selain itu, koneksi kabel diperiksa secara langsung melalui Packet Tracer untuk memastikan IP address dipasang pada interface yang benar.
+| Parameter | R-PUSAT | R-PELABUHAN |
+| :--- | :--- | :--- |
+| **Interface Tunnel** | `Tunnel0` | `Tunnel0` |
+| **Network Tunnel** | `192.168.13.0/30` (`255.255.255.252`) | `192.168.13.0/30` (`255.255.255.252`) |
+| **IP Address Tunnel** | `192.168.13.1` | `192.168.13.2` |
+| **Tunnel Source** | `Serial0/2/1` (`10.104.241.37`) | `GigabitEthernet0/1` (`10.104.241.54`) |
+| **Tunnel Destination** | `10.104.241.54` | `10.104.241.37` |
+| **Subnet LAN yang Diarahkan** | Ke Pelabuhan: `10.104.160.0/19` & `10.104.240.0/25` via `192.168.13.2` | Ke Balai Kota: `10.104.224.0/21` & `10.104.241.0/27` via `192.168.13.1` |
 
 ---
 
-# 9. Dokumentasi dan Bukti Pengujian
+## 6.2 Konfigurasi Tunnel GRE & Routing via Tunnel
 
-Screenshot yang perlu dilampirkan:
+### A. Konfigurasi pada `R-PUSAT`
+```cisco
+interface Tunnel0
+ ip address 192.168.13.1 255.255.255.252
+ tunnel source Serial0/2/1
+ tunnel destination 10.104.241.54
+ tunnel mode gre ip
+ exit
 
-1. Topologi keseluruhan Smart City Surabaya.
-2. Tabel VLSM.
-3. Konfigurasi interface R-PUSAT.
-4. Konfigurasi interface R-DC.
-5. Konfigurasi interface R-UTARA.
-6. Konfigurasi interface R-TIMUR.
-7. Konfigurasi interface R-SELATAN.
-8. Konfigurasi interface R-BARAT.
-9. Konfigurasi interface R-PELABUHAN.
-10. Output `show ip route`.
-11. Pengujian ping backbone L1–L6.
-12. Pengujian komunikasi antarwilayah.
-13. Pengujian koneksi R-ISP dan server internet.
+! Mengarahkan lalu lintas menuju subnet Pelabuhan melewati GRE Tunnel
+ip route 10.104.160.0 255.255.224.0 192.168.13.2
+ip route 10.104.240.0 255.255.255.128 192.168.13.2
+```
 
-Struktur folder dokumentasi:
+### B. Konfigurasi pada `R-PELABUHAN`
+```cisco
+interface Tunnel0
+ ip address 192.168.13.2 255.255.255.252
+ tunnel source GigabitEthernet0/1
+ tunnel destination 10.104.241.37
+ tunnel mode gre ip
+ exit
+
+! Mengarahkan lalu lintas menuju subnet Balai Kota melewati GRE Tunnel
+ip route 10.104.224.0 255.255.248.0 192.168.13.1
+ip route 10.104.241.0 255.255.255.224 192.168.13.1
+```
+
+---
+
+## 6.3 Analisis & Jawaban Pertanyaan Dokumentasi (Soal 6)
+
+### 1. Mengapa router memilih jalur tunnel dibandingkan jalur lain ke Pelabuhan?
+Router memilih jalur dalam tabel routing berdasarkan dua mekanisme utama:
+1. **Longest Prefix Match (Pencocokan Prefix Terpanjang/Paling Spesifik):**
+   - Pada **`R-PELABUHAN`**, jalur keluar ke jaringan lain awalnya menggunakan *default route* (`0.0.0.0/0`) ke `R-UTARA` (`10.104.241.53`). Ketika ditambahkan static route spesifik menuju subnet Pegawai Balai Kota (`10.104.224.0/21`) dan Server Balai Kota (`10.104.241.0/27`) dengan next-hop IP Tunnel `R-PUSAT` (`192.168.13.1`), router selalu memilih rute `/21` dan `/27` via `Tunnel0` karena prefix-nya jauh lebih spesifik dibandingkan `/0`.
+2. **Penentuan Next-Hop Langsung pada Tabel Routing (`R-PUSAT`):**
+   - Pada **`R-PUSAT`**, rute menuju subnet SCADA Pelabuhan (`10.104.160.0/19`) dan Kantor Pelabuhan (`10.104.240.0/25`) diarahkan ke next-hop `192.168.13.2` (`Tunnel0`).
+   - Setelah paket masuk ke interface `Tunnel0`, barulah router melakukan *recursive lookup* untuk membungkus (*encapsulate*) paket tersebut dengan header IP luar (*outer IP header*) dari `10.104.241.37` menuju `10.104.241.54` melewati jaringan fisik di bawahnya (*underlay network*). Akibatnya, dari sudut pandang paket asli (*inner packet*), `R-UTARA` dilewati secara transparan dan tidak muncul sebagai hop pada `tracert`.
+
+### 2. Mengapa GRE saja tidak mengenkripsi data?
+- **GRE (*Generic Routing Encapsulation*, IP Protocol 47)** dirancang murni sebagai **protokol enkapsulasi (*tunneling*)**, bukan protokol keamanan atau kriptografi.
+- Cara kerja GRE hanyalah menambahkan **header GRE (4 byte)** dan **header IP pengantar baru (*outer IP header*, 20 byte)** di depan paket IP asli (*inner IP packet*) agar paket dari berbagai jaringan privat dapat dikirim melintasi jaringan perantara.
+- GRE **tidak memiliki mekanisme autentikasi, pemeriksaan integritas kriptografis (HMAC), maupun algoritma cipher enkripsi (seperti AES/3DES)**. Seluruh isi payload di dalam paket GRE tetap dikirim dalam bentuk teks terbuka (*plaintext*). Jika lalu lintas disadap (*packet sniffing*) di router perantara seperti `R-UTARA`, isi komunikasi antara Balai Kota dan Pelabuhan dapat dibaca secara langsung. Oleh karena itu, dibutuhkan **IPsec (GRE over IPsec)** untuk mengenkripsi paket GRE tersebut.
+
+---
+
+## 6.4 Konfigurasi Bonus (+5): Enkripsi Lalu Lintas Tunnel dengan IPsec (GRE over IPsec)
+
+Untuk mengenkripsi lalu lintas di dalam tunnel GRE, dikonfigurasi **IPsec (IKE Phase 1 & Phase 2)** dengan melindungi protokol `gre` (IP Protocol 47) antara endpoint fisik `10.104.241.37` (`R-PUSAT`) dan `10.104.241.54` (`R-PELABUHAN`):
+
+### A. Konfigurasi IPsec pada `R-PUSAT`
+```cisco
+! Aktifkan modul Security Technology Package
+license boot module c2900 technology-package securityk9
+
+! Phase 1: ISAKMP Policy & Pre-Shared Key
+crypto isakmp policy 10
+ encryption aes 256
+ hash sha
+ authentication pre-share
+ group 2
+ lifetime 86400
+ exit
+crypto isakmp key SMARTCITY13 address 10.104.241.54
+
+! Phase 2: IPsec Transform Set (ESP-AES 256 + ESP-SHA-HMAC)
+crypto ipsec transform-set GRE-TS esp-aes 256 esp-sha-hmac
+
+! Access-List untuk menangkap trafik GRE (Protocol 47)
+access-list 110 permit gre host 10.104.241.37 host 10.104.241.54
+
+! Crypto Map dan pemasangan pada interface fisik keluar (Serial0/2/1)
+crypto map GRE-MAP 10 ipsec-isakmp
+ set peer 10.104.241.54
+ set transform-set GRE-TS
+ match address 110
+ exit
+
+interface Serial0/2/1
+ crypto map GRE-MAP
+ exit
+```
+
+### B. Konfigurasi IPsec pada `R-PELABUHAN`
+```cisco
+! Aktifkan modul Security Technology Package
+license boot module c2900 technology-package securityk9
+
+! Phase 1: ISAKMP Policy & Pre-Shared Key
+crypto isakmp policy 10
+ encryption aes 256
+ hash sha
+ authentication pre-share
+ group 2
+ lifetime 86400
+ exit
+crypto isakmp key SMARTCITY13 address 10.104.241.37
+
+! Phase 2: IPsec Transform Set
+crypto ipsec transform-set GRE-TS esp-aes 256 esp-sha-hmac
+
+! Access-List untuk menangkap trafik GRE (Protocol 47)
+access-list 110 permit gre host 10.104.241.54 host 10.104.241.37
+
+! Crypto Map dan pemasangan pada interface fisik keluar (GigabitEthernet0/1)
+crypto map GRE-MAP 10 ipsec-isakmp
+ set peer 10.104.241.37
+ set transform-set GRE-TS
+ match address 110
+ exit
+
+interface GigabitEthernet0/1
+ crypto map GRE-MAP
+ exit
+```
+
+---
+
+## 6.5 Bukti Pengujian Mandiri Soal 6
+
+### A. Verifikasi Status Interface `Tunnel0` di `R-PUSAT` dan `R-PELABUHAN`
+Interface `Tunnel0` pada kedua router telah berstatus `up / up` dengan protokol transport `GRE/IP`:
+
+- **`R-PUSAT` (`192.168.13.1/30`):**
+  ![Status Tunnel0 R-PUSAT](docs/06-gre-tunnel/no6-r-pusat-tunnel.png)
+
+- **`R-PELABUHAN` (`192.168.13.2/30`):**
+  ![Status Tunnel0 R-PELABUHAN](docs/06-gre-tunnel/no6-r-pelabuhan-tunnel.png)
+
+### B. Uji `tracert` Balai Kota ↔ Pelabuhan Melewati Tunnel
+*(Catatan: Alamat `.1` s/d `.10` pada setiap subnet di-exclude pada DHCP Pool untuk IP statis/gateway, sehingga PC klien mendapatkan IP dinamis mulai dari `.11`).*
+
+- **Dari `PC PEGAWAI` Balai Kota (`10.104.224.11`) ke `PC KANTOR` Pelabuhan (`10.104.240.11`):**
+  Terlihat pada hop ke-2 paket langsung melewati **`192.168.13.2`** (`Tunnel0` milik `R-PELABUHAN`) tanpa menampilkan `R-UTARA`:
+  ![Tracert Balai Kota ke Pelabuhan](docs/06-gre-tunnel/no6-tracert-pusat-ke-pelabuhan.png)
+
+- **Dari `PC KANTOR` Pelabuhan (`10.104.240.11`) ke `PC PEGAWAI` Balai Kota (`10.104.224.11`):**
+  Terlihat pada hop ke-2 paket langsung melewati **`192.168.13.1`** (`Tunnel0` milik `R-PUSAT`):
+  ![Tracert Pelabuhan ke Balai Kota](docs/06-gre-tunnel/no6-tracert-pelabuhan-ke-pusat.png)
+
+### C. Verifikasi Enkripsi IPsec (`show crypto ipsec sa`)
+Hasil pemeriksaan Security Association (SA) pada `R-PUSAT` menunjukkan trafik GRE (`prot 47`) antara `10.104.241.37` dan `10.104.241.54` telah terenkripsi menggunakan `esp-aes 256 esp-sha-hmac` dengan jumlah paket terenkripsi (`#pkts encaps: 51, #pkts encrypt: 51`) dan terdekripsi (`#pkts decaps: 18, #pkts decrypt: 18`) serta status `ACTIVE`:
+
+![Verifikasi IPsec SA](docs/06-gre-tunnel/no6-ipsec-sa.png)
+
+---
+
+# 7. Dynamic Routing OSPF (Soal 7)
+
+## 7.1 Penambahan Link Cadangan `L7` (`R-DC` ↔ `R-UTARA`)
+
+Pada file terpisah (`K13_OSPF.pkt`), ditambahkan sebuah link serial cadangan (**L7**) antara **`R-DC`** dan **`R-UTARA`** pada port `Serial0/3/1` menggunakan blok subnet `/30` berikutnya yang belum terpakai setelah L6 (`10.104.241.52/30`), yaitu:
+
+| Parameter | Nilai |
+|---|---|
+| **Nama Link** | `L7` (Link Cadangan `R-DC` ↔ `R-UTARA`) |
+| **Network ID** | `10.104.241.56/30` (`255.255.255.252`) |
+| **`R-DC` (`Serial0/3/1`)** | `10.104.241.57` |
+| **`R-UTARA` (`Serial0/3/1`)** | `10.104.241.58` |
+
+### Verifikasi Interface `L7` pada `R-DC` dan `R-UTARA`
+- **`R-DC` (`Serial0/3/1` = `10.104.241.57`):**
+  ![Interface Brief R-DC OSPF](docs/07-ospf/no7-r-dc-ip-int-brief.png)
+
+- **`R-UTARA` (`Serial0/3/1` = `10.104.241.58`):**
+  ![Interface Brief R-UTARA OSPF](docs/07-ospf/no7-r-utara-ip-int-brief.png)
+
+---
+
+## 7.2 Ketentuan & Konfigurasi OSPF
+
+Seluruh *static route* menuju jaringan internal dihapus (`no ip route ...`) dan digantikan dengan **OSPF Process ID 1 (`Area 0`)** dengan ketentuan:
+1. **Tidak mengirim pesan OSPF ke arah LAN pengguna (`passive-interface`):**
+   - Setiap interface `GigabitEthernet` yang mengarah ke switch LAN pengguna/server diatur sebagai `passive-interface` agar router tidak mengirim paket *OSPF Hello* ke jaringan pengguna, namun subnet LAN tetap di-*advertise* melalui perintah `network`.
+2. **Propagasi Default Route otomatis dari `R-PUSAT` (`default-information originate`):**
+   - Static default route ke arah `R-ISP` (`ip route 0.0.0.0 0.0.0.0 203.0.113.54`) **hanya** dikonfigurasi di `R-PUSAT`.
+   - Melalui perintah `default-information originate` pada `R-PUSAT`, seluruh router lain menerima rute default eksternal (`O*E2 0.0.0.0/0`) secara otomatis melalui OSPF.
+
+### A. Konfigurasi OSPF pada `R-PUSAT` (Router ID `1.1.1.1`)
+```cisco
+router ospf 1
+ router-id 1.1.1.1
+ passive-interface GigabitEthernet0/0
+ passive-interface GigabitEthernet0/1
+ network 10.104.224.0 0.0.7.255 area 0
+ network 10.104.241.0 0.0.0.31 area 0
+ network 10.104.241.32 0.0.0.3 area 0
+ network 10.104.241.36 0.0.0.3 area 0
+ network 10.104.241.40 0.0.0.3 area 0
+ network 10.104.241.44 0.0.0.3 area 0
+ network 10.104.241.48 0.0.0.3 area 0
+ default-information originate
+ exit
+```
+
+### B. Konfigurasi OSPF pada `R-DC` (Router ID `2.2.2.2`)
+```cisco
+router ospf 1
+ router-id 2.2.2.2
+ passive-interface GigabitEthernet0/0
+ passive-interface GigabitEthernet0/1
+ network 10.104.96.0 0.0.31.255 area 0
+ network 10.104.239.0 0.0.0.255 area 0
+ network 10.104.241.32 0.0.0.3 area 0
+ network 10.104.241.56 0.0.0.3 area 0
+ exit
+```
+
+### C. Konfigurasi OSPF pada `R-UTARA` (Router ID `3.3.3.3`)
+```cisco
+router ospf 1
+ router-id 3.3.3.3
+ passive-interface GigabitEthernet0/0
+ passive-interface GigabitEthernet0/1
+ network 10.104.0.0 0.0.63.255 area 0
+ network 10.104.236.0 0.0.1.255 area 0
+ network 10.104.241.36 0.0.0.3 area 0
+ network 10.104.241.52 0.0.0.3 area 0
+ network 10.104.241.56 0.0.0.3 area 0
+ exit
+```
+
+### D. Konfigurasi OSPF pada `R-PELABUHAN`, `R-SELATAN`, `R-TIMUR`, dan `R-BARAT`
+```cisco
+! R-PELABUHAN
+router ospf 1
+ router-id 4.4.4.4
+ passive-interface GigabitEthernet0/0
+ passive-interface GigabitEthernet0/2
+ network 10.104.160.0 0.0.31.255 area 0
+ network 10.104.240.0 0.0.0.127 area 0
+ network 10.104.241.52 0.0.0.3 area 0
+ exit
+
+! R-SELATAN
+router ospf 1
+ router-id 5.5.5.5
+ passive-interface GigabitEthernet0/0
+ passive-interface GigabitEthernet0/1
+ network 10.104.64.0 0.0.31.255 area 0
+ network 10.104.240.128 0.0.0.127 area 0
+ network 10.104.241.40 0.0.0.3 area 0
+ exit
+
+! R-TIMUR
+router ospf 1
+ router-id 6.6.6.6
+ passive-interface GigabitEthernet0/0
+ passive-interface GigabitEthernet0/1
+ network 10.104.128.0 0.0.31.255 area 0
+ network 10.104.232.0 0.0.3.255 area 0
+ network 10.104.241.44 0.0.0.3 area 0
+ exit
+
+! R-BARAT
+router ospf 1
+ router-id 7.7.7.7
+ passive-interface GigabitEthernet0/0
+ passive-interface GigabitEthernet0/1
+ network 10.104.192.0 0.0.31.255 area 0
+ network 10.104.238.0 0.0.0.255 area 0
+ network 10.104.241.48 0.0.0.3 area 0
+ exit
+```
+
+---
+
+## 7.3 Bukti Pengujian Mandiri Soal 7
+
+### A. Verifikasi Tetangga OSPF (`show ip ospf neighbor`) dan Tabel Routing OSPF
+1. **Tetangga OSPF pada `R-DC`:**
+   Terlihat `R-DC` membentuk adjacency `FULL` dengan dua router sekaligus, yaitu **`1.1.1.1` (`R-PUSAT`)** melalui `Serial0/3/0` (L1) dan **`3.3.3.3` (`R-UTARA`)** melalui `Serial0/3/1` (L7):
+   ![OSPF Neighbor R-DC](docs/07-ospf/no7-r-dc-ospf-neighbor.png)
+
+2. **Tabel Routing OSPF Lengkap pada `R-PUSAT` (`show ip route`):**
+   Seluruh subnet wilayah telah dipelajari secara dinamis dengan kode **`O`** (OSPF Intra-Area), termasuk *equal-cost load balancing* (`[110/128]`) menuju link L7 (`10.104.241.56/30`) melalui `R-UTARA` (`10.104.241.38`) dan `R-DC` (`10.104.241.34`):
+   ![Tabel Routing OSPF R-PUSAT](docs/07-ospf/no7-r-pusat-ip-route-ospf.png)
+
+### B. Verifikasi Penyebaran Default Route Otomatis via OSPF
+1. **Database LSA Tipe-5 External (`show ip ospf database external`):**
+   Membuktikan bahwa rute default `0.0.0.0/0` di-*originate* oleh Advertising Router **`1.1.1.1` (`R-PUSAT`)** menggunakan LSA Type-5 (`AS External Link`):
+   ![OSPF Database External](docs/07-ospf/no7-ospf-database-external.png)
+
+2. **Penerimaan Default Route Otomatis pada `R-DC` (`show ip route 0.0.0.0`):**
+   `R-DC` menerima `0.0.0.0/0` secara otomatis melalui `"ospf 1"` (`type extern 2`, distance `110`, metric `1`) dari `1.1.1.1` (`10.104.241.33`):
+   ![Default Route OSPF di R-DC](docs/07-ospf/no7-r-dc-default-route-ospf.png)
+
+### C. Pengujian Failover Otomatis Saat Link Backbone Putus
+Pengujian dilakukan dengan memeriksa rute dari `R-DC` menuju subnet Pegawai Balai Kota (`10.104.224.0/21`) pada 3 kondisi:
+
+1. **Kondisi Normal (Link Utama `L1` Aktif):**
+   `R-DC` memilih jalur langsung ke `R-PUSAT` (`10.104.241.33`) melalui **`Serial0/3/0` (L1)** dengan **metric `65`**:
+   ![Rute Normal via L1](docs/07-ospf/no7-r-dc-route-normal-l1.png)
+
+2. **Saat Link Utama `L1` Putus (Failover Otomatis ke Link Cadangan `L7`):**
+   Ketika link `L1` terputus, OSPF secara otomatis mengalihkan jalur menuju `10.104.224.0/21` melewati **`10.104.241.58` (`R-UTARA`)** pada interface **`Serial0/3/1` (Link Cadangan L7)** dengan **metric `129`** (`R-DC` $\rightarrow$ `R-UTARA` $\rightarrow$ `R-PUSAT`):
+   ![Rute Failover via L7](docs/07-ospf/no7-r-dc-route-failover-l7.png)
+
+   Pengujian `ping 10.104.224.11` (`PC PEGAWAI`) dari `PC CCTV` membuktikan konektivitas tetap pulih 100% (`0% loss`) melalui jalur cadangan L7:
+   ![Ping CCTV ke Pegawai Saat Failover](docs/07-ospf/no7-ping-cctv-ke-pegawai-failover.png)
+
+3. **Saat Link Utama `L1` Pulih Kembali (Recovery):**
+   Ketika link `L1` kembali aktif, OSPF otomatis mengembalikan rute terbaik menuju `10.104.241.33` melalui **`Serial0/3/0` (L1)** dengan **metric `65`**:
+   ![Rute Recovery Kembali ke L1](docs/07-ospf/no7-r-dc-route-recovery-l1.png)
+
+---
+
+# 8. Layanan Aplikasi Smart City (Soal 8)
+
+Seluruh layanan aplikasi internal Smart City Kelompok 13 menggunakan domain **`k13.smartcity.lab`**. Kedua server dikonfigurasi menggunakan IP statis sesuai tabel VLSM:
+- **`Server dan Storage DC`** (`10.104.239.0/24`): IP `10.104.239.2`, Subnet Mask `255.255.255.0`, Gateway `10.104.239.1`, DNS `10.104.239.2`.
+- **`SERVER BALAIKOTA`** (`10.104.241.0/27`): IP `10.104.241.2`, Subnet Mask `255.255.255.224`, Gateway `10.104.241.1`, DNS `10.104.239.2`.
+
+![Konfigurasi IP Statis Kedua Server](docs/08-layanan-aplikasi/no8-ip-server.png)
+
+---
+
+## 8.1 Layanan DNS di LAN Server dan Storage DC (Soal 8a)
+
+Layanan DNS diaktifkan pada **`Server dan Storage DC` (`10.104.239.2`)** dan didistribusikan ke seluruh perangkat pengguna melalui parameter `dns-server 10.104.239.2` pada seluruh DHCP Pool. Berikut daftar *Resource Records* yang didaftarkan:
+
+| Nama Domain | Tipe | Alamat IP Tujuan | Lokasi Server |
+| :--- | :---: | :---: | :--- |
+| `www.k13.smartcity.lab` | `A Record` | `10.104.241.2` | `SERVER BALAIKOTA` (Web Portal) |
+| `k13.smartcity.lab` | `A Record` | `10.104.241.2` | `SERVER BALAIKOTA` (Web Portal) |
+| `ftp.k13.smartcity.lab` | `A Record` | `10.104.239.2` | `Server dan Storage DC` (FTP Storage CCTV) |
+| `mail.k13.smartcity.lab` | `A Record` | `10.104.239.2` | `Server dan Storage DC` (Mail Server) |
+
+![Konfigurasi DNS Server di Server dan Storage DC](docs/08-layanan-aplikasi/no8a-dns-server.png)
+
+---
+
+## 8.2 Layanan Web Portal Smart City Surabaya di LAN Server Balai Kota (Soal 8b)
+
+Layanan HTTP/HTTPS diaktifkan pada **`SERVER BALAIKOTA` (`10.104.241.2`)**. File `index.html` disesuaikan untuk menampilkan halaman **"Portal Smart City Surabaya - Kelompok 13"** dan diuji aksesnya menggunakan nama domain `http://www.k13.smartcity.lab`:
+
+![Halaman Web Portal Smart City Surabaya Kelompok 13](docs/08-layanan-aplikasi/no8b-web-portal.png)
+
+---
+
+## 8.3 Layanan FTP Penyimpanan Rekaman CCTV di LAN Server dan Storage DC (Soal 8c)
+
+Layanan FTP diaktifkan pada **`Server dan Storage DC` (`10.104.239.2`)** dengan akun autentikasi khusus perangkat CCTV (`Username: cctv`, izin penuh `Write, Read, Delete, Rename, List`).
+
+Pengujian dilakukan dari **`PC CCTV`** (LAN CCTV Kota) dengan membuat file rekaman `rekaman_k13.txt`, masuk ke `ftp.k13.smartcity.lab`, mengunggah file menggunakan perintah `put rekaman_k13.txt`, dan memverifikasi keberadaannya di direktori server dengan perintah `dir` (terlihat pada entri nomor `35 : rekaman_k13.txt`):
+
+![Bukti Upload File Rekaman CCTV ke FTP Server](docs/08-layanan-aplikasi/no8c-ftp-upload.png)
+
+---
+
+## 8.4 Layanan Email Antarpegawai Balai Kota dan Pelabuhan (Soal 8d)
+
+Layanan **SMTP** dan **POP3** diaktifkan pada **`Server dan Storage DC` (`10.104.239.2`)** dengan nama domain **`k13.smartcity.lab`** serta dua akun pegawai:
+1. **`pegawai1@k13.smartcity.lab`** — digunakan pada **`PC PEGAWAI`** (LAN Pegawai Balai Kota, `10.104.224.11`).
+2. **`pegawai2@k13.smartcity.lab`** — digunakan pada **`PC KANTOR`** (LAN Kantor Pelabuhan, `10.104.240.11`).
+
+### Bukti Pengujian Kirim & Terima Email Dua Arah:
+1. **Pengiriman Email dari `PC PEGAWAI` (Balai Kota) ke `pegawai2@k13.smartcity.lab` (Pelabuhan):**
+   ![Compose Email di PC PEGAWAI](docs/08-layanan-aplikasi/no8d-email-compose.png)
+   ![Status Send Mail Success](docs/08-layanan-aplikasi/no8d-email-send-success.png)
+
+2. **Penerimaan & Balasan Email (*Reply*) dari `PC KANTOR` (Pelabuhan) ke `pegawai1@k13.smartcity.lab` (Balai Kota):**
+   ![Status Receive Mail Success](docs/08-layanan-aplikasi/no8d-email-receive-success.png)
+   ![Reply Email dari PC KANTOR Pelabuhan](docs/08-layanan-aplikasi/no8d-email-reply.png)
+
+---
+
+## Struktur Direktori Dokumentasi
 
 ```text
-docs/
-├── 01-topologi/
-│   └── topologi-smart-city.png
-├── 02-vlsm/
-│   └── tabel-vlsm.png
-├── 03-interface/
-│   ├── r-pusat.png
-│   ├── r-dc.png
-│   ├── r-utara.png
-│   ├── r-timur.png
-│   ├── r-selatan.png
-│   ├── r-barat.png
-│   └── r-pelabuhan.png
-├── 04-static-routing/
-│   ├── routing-table.png
-│   └── pengujian-ping.png
-└── 05-isp/
-    └── pengujian-isp.png
+MidProject-Jarkom_K-13_070_076_093/
+├── K13_VLSM.pkt
+├── K13_VLSM_OSPF.pkt
+├── README.md
+└── docs/
+    ├── 01-topologi/
+    │   └── topologi-smart-city.jpg
+    ├── 02-vlsm/
+    │   └── tabel-vlsm.jpg
+    ├── 06-gre-tunnel/
+    │   ├── no6-r-pusat-tunnel.png
+    │   ├── no6-r-pelabuhan-tunnel.png
+    │   ├── no6-tracert-pusat-ke-pelabuhan.png
+    │   ├── no6-tracert-pelabuhan-ke-pusat.png
+    │   └── no6-ipsec-sa.png
+    ├── 07-ospf/
+    │   ├── no7-r-dc-ip-int-brief.png
+    │   ├── no7-r-utara-ip-int-brief.png
+    │   ├── no7-r-dc-ospf-neighbor.png
+    │   ├── no7-r-pusat-ip-route-ospf.png
+    │   ├── no7-ospf-database-external.png
+    │   ├── no7-r-dc-default-route-ospf.png
+    │   ├── no7-r-dc-route-normal-l1.png
+    │   ├── no7-r-dc-route-failover-l7.png
+    │   ├── no7-ping-cctv-ke-pegawai-failover.png
+    │   └── no7-r-dc-route-recovery-l1.png
+    └── 08-layanan-aplikasi/
+        ├── no8-ip-server.png
+        ├── no8a-dns-server.png
+        ├── no8b-web-portal.png
+        ├── no8c-ftp-upload.png
+        ├── no8d-email-compose.png
+        ├── no8d-email-send-success.png
+        ├── no8d-email-receive-success.png
+        └── no8d-email-reply.png
 ```
-
----
-
-# 10. Struktur File Pengumpulan
-
-Untuk bagian pengerjaan ini, file yang perlu disiapkan:
-
-```text
-MidProject_Jarkom_K13/
-│
-├── PacketTracer/
-│   └── K13_VLSM.pkt
-│
-├── Spreadsheet/
-│   └── Tabel_VLSM.xlsx
-│
-├── Dokumentasi/
-│   ├── README.md
-│   └── docs/
-│
-└── Bukti_Pengujian/
-    ├── topologi/
-    ├── vlsm/
-    ├── interface/
-    ├── static-routing/
-    └── isp/
-```
-
-Nama file ZIP akhir mengikuti format dari dosen:
-
-```text
-MidProject_Jarkom_K13_<NRP1>_<NRP2>_<NRP3>.ZIP
-```
-
----
-
-# 11. Kesimpulan
-
-Pada tahap pengerjaan ini, kelompok telah melakukan perancangan topologi jaringan Smart City Kota Surabaya, pembagian alamat IP menggunakan metode VLSM, serta konfigurasi static routing pada router pusat dan router wilayah.
-
-Topologi berhasil menghubungkan Balai Kota, Data Center, Surabaya Utara, Surabaya Timur, Surabaya Selatan, Surabaya Barat, dan Pelabuhan melalui jaringan backbone.
-
-Hasil pengujian menunjukkan bahwa koneksi backbone L1–L6 dan komunikasi antarwilayah yang telah diuji berhasil mencapai tingkat keberhasilan 100%.
-
-Selain itu, proses troubleshooting telah dilakukan untuk memperbaiki masalah interface dan jalur balik static routing.
-
-Dengan demikian, bagian perancangan topologi, pengalamatan jaringan, dan static routing telah dikerjakan sebagai dasar untuk pengembangan layanan jaringan pada tahap berikutnya.
-
----
-
-# SEMENTARA
