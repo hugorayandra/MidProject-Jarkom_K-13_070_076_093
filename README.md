@@ -30,10 +30,11 @@ Cakupan implementasi pada dokumentasi ini disesuaikan dengan urutan soal Mid-Pro
 1. **Soal 1:** Perancangan Topologi Jaringan & Konfigurasi Interface Router
 2. **Soal 2:** Tabel Subnetting (VLSM)
 3. **Soal 3:** Static Routing & Pengujian Konektivitas
-4. *(Soal 4 & Soal 5 dilewati sementara — menunggu penggabungan dokumentasi)*
-5. **Soal 6:** Tunnel GRE & Enkripsi IPsec (Bonus)
-6. **Soal 7:** Dynamic Routing OSPF & Uji Failover Link Cadangan L7
-7. **Soal 8:** Layanan Aplikasi Smart City (`k13.smartcity.lab` — DNS, Web, FTP, Email)
+4. **Soal 4:** DHCP (Router & DHCP Relay untuk CCTV dari Server DC)
+5. **Soal 5:** NAT Overload (PAT) menuju Server Internet `8.8.8.8`
+6. **Soal 6:** Tunnel GRE & Enkripsi IPsec (Bonus)
+7. **Soal 7:** Dynamic Routing OSPF & Uji Failover Link Cadangan L7
+8. **Soal 8:** Layanan Aplikasi Smart City (`k13.smartcity.lab` — DNS, Web, FTP, Email)
 
 ---
 
@@ -484,9 +485,424 @@ end
 | L5 | R-PUSAT ↔ R-BARAT | 100% |
 | L6 | R-UTARA ↔ R-PELABUHAN | 100% |
 
+# 4. Konfigurasi DHCP (Soal 4)
+
+## 4.1 Ketentuan Soal
+
+Sesuai ketentuan soal:
+
+- Interface router dan seluruh server menggunakan **IP statis**.
+- Perangkat pengguna mendapat **IP dinamis** secara otomatis, lengkap dengan gateway dan DNS server (Soal 8), tanpa bentrok dengan alamat IP statis.
+- Khusus subnet **CCTV Kota** (subnet `R-DC`) mendapatkan alamat dari **server DHCP di LAN Server dan Storage DC**, bukan dari router.
+
+## 4.2 Perbaikan Topologi Sebelum Konfigurasi DHCP
+
+Sebelum DHCP dikonfigurasi, dilakukan dua perbaikan pada topologi agar setiap LAN menjadi satu *broadcast domain* yang terpisah. Hal ini penting karena permintaan DHCP (*DHCP Discover*) dikirim secara **broadcast**, sehingga jika dua LAN tergabung dalam satu broadcast domain, sebuah PC dapat menerima alamat dari subnet yang salah.
+
+### A. Penghapusan Kabel Antar-Switch
+
+Pada topologi awal terdapat kabel yang menghubungkan dua switch dari LAN yang berbeda. Keenam kabel berikut dihapus:
+
+| No. | Kabel Antar-Switch yang Dihapus |
+|---|---|
+| 1 | `SW-DC` ↔ `SW-CCTV` |
+| 2 | `SW-BARAT` ↔ `SW-PUSKESMAS` |
+| 3 | `SW-SENSOR-UTARA` ↔ `SW-WIFI-UTARA` |
+| 4 | `SW-TIMUR` ↔ `SW-WIFI-TIMUR` |
+| 5 | `SW-PJU` ↔ `SW-WIFI-SELATAN` |
+| 6 | `SW-BALAIKOTA` ↔ `SW-PEGAWAI` |
+
+### B. Penyesuaian Kabel Router ke Switch
+
+Pada empat router, kabel `GigabitEthernet0/0` dan `GigabitEthernet0/1` tertukar dengan konfigurasi IP-nya. Kabel dipindahkan agar sesuai dengan IP pada interface (konfigurasi IP pada Bagian 1.6 tidak berubah):
+
+| Router | `Gig0/0` → | `Gig0/1` → |
+|---|---|---|
+| `R-PUSAT` | `SW-PEGAWAI` (Pegawai Balai Kota) | `SW-BALAIKOTA` (Server Balai Kota) |
+| `R-DC` | `SW-CCTV` (CCTV Kota) | `SW-DC` (Server & Storage DC) |
+| `R-UTARA` | `SW-WIFI-UTARA` (WiFi Utara) | `SW-SENSOR-UTARA` (Sensor Lalu Lintas) |
+| `R-TIMUR` | `SW-WIFI-TIMUR` (WiFi Timur) | `SW-TIMUR` (Sensor Banjir) |
+
+Verifikasi dilakukan menggunakan perintah `show cdp neighbors` dan label port pada *Logical Workspace*.
+
 ---
 
-*(Catatan: Bagian **Soal 4 (DHCP)** dan **Soal 5 (NAT)** dilewati sementara sesuai pembagian pengerjaan dan akan ditambahkan oleh anggota terkait).*
+## 4.3 Desain DHCP Pool
+
+Alamat IP statis kedua server telah dijelaskan pada Bagian 8 (`Server dan Storage DC`: `10.104.239.2`, `SERVER BALAIKOTA`: `10.104.241.2`). Subnet Server Balai Kota dan Server & Storage DC **tidak memiliki DHCP pool** karena seluruh perangkatnya menggunakan IP statis.
+
+Untuk mencegah bentrok dengan IP statis, alamat **`.1` s/d `.10`** pada setiap subnet dikecualikan menggunakan `ip dhcp excluded-address` (dicadangkan untuk gateway dan perangkat statis), sehingga PC klien mendapatkan IP dinamis mulai dari **`.11`**. Seluruh pool mendistribusikan DNS **`10.104.239.2`** (`Server dan Storage DC`, Soal 8).
+
+| Pool | Penyedia DHCP | Network | Gateway | Excluded | Range Dinamis |
+|---|---|---|---|---|---|
+| `POOL-PEGAWAI` | `R-PUSAT` | `10.104.224.0/21` | `10.104.224.1` | `.224.1` – `.224.10` | `10.104.224.11` – `10.104.231.254` |
+| `POOL-WIFI-UTARA` | `R-UTARA` | `10.104.0.0/18` | `10.104.0.1` | `.0.1` – `.0.10` | `10.104.0.11` – `10.104.63.254` |
+| `POOL-SENSOR-LALIN` | `R-UTARA` | `10.104.236.0/23` | `10.104.236.1` | `.236.1` – `.236.10` | `10.104.236.11` – `10.104.237.254` |
+| `POOL-WIFI-TIMUR` | `R-TIMUR` | `10.104.128.0/19` | `10.104.128.1` | `.128.1` – `.128.10` | `10.104.128.11` – `10.104.159.254` |
+| `POOL-SENSOR-BANJIR` | `R-TIMUR` | `10.104.232.0/22` | `10.104.232.1` | `.232.1` – `.232.10` | `10.104.232.11` – `10.104.235.254` |
+| `POOL-WIFI-SELATAN` | `R-SELATAN` | `10.104.64.0/19` | `10.104.64.1` | `.64.1` – `.64.10` | `10.104.64.11` – `10.104.95.254` |
+| `POOL-PJU` | `R-SELATAN` | `10.104.240.128/25` | `10.104.240.129` | `.240.129` – `.240.138` | `10.104.240.139` – `10.104.240.254` |
+| `POOL-WIFI-BARAT` | `R-BARAT` | `10.104.192.0/19` | `10.104.192.1` | `.192.1` – `.192.10` | `10.104.192.11` – `10.104.223.254` |
+| `POOL-PUSKESMAS` | `R-BARAT` | `10.104.238.0/24` | `10.104.238.1` | `.238.1` – `.238.10` | `10.104.238.11` – `10.104.238.254` |
+| `POOL-SCADA` | `R-PELABUHAN` | `10.104.160.0/19` | `10.104.160.1` | `.160.1` – `.160.10` | `10.104.160.11` – `10.104.191.254` |
+| `POOL-KANTOR` | `R-PELABUHAN` | `10.104.240.0/25` | `10.104.240.1` | `.240.1` – `.240.10` | `10.104.240.11` – `10.104.240.126` |
+| `DHCP-CCTV` | **`Server dan Storage DC`** | `10.104.96.0/19` | `10.104.96.1` | `.96.1` – `.96.10` | `10.104.96.11` – `10.104.127.254` |
+
+---
+
+## 4.4 Konfigurasi DHCP Pool pada Router
+
+### A. Konfigurasi DHCP pada `R-PUSAT`
+```cisco
+enable
+configure terminal
+ip dhcp excluded-address 10.104.224.1 10.104.224.10
+ip dhcp pool POOL-PEGAWAI
+ network 10.104.224.0 255.255.248.0
+ default-router 10.104.224.1
+ dns-server 10.104.239.2
+ exit
+end
+write memory
+```
+
+### B. Konfigurasi DHCP pada `R-UTARA`
+```cisco
+enable
+configure terminal
+ip dhcp excluded-address 10.104.0.1 10.104.0.10
+ip dhcp excluded-address 10.104.236.1 10.104.236.10
+ip dhcp pool POOL-WIFI-UTARA
+ network 10.104.0.0 255.255.192.0
+ default-router 10.104.0.1
+ dns-server 10.104.239.2
+ exit
+ip dhcp pool POOL-SENSOR-LALIN
+ network 10.104.236.0 255.255.254.0
+ default-router 10.104.236.1
+ dns-server 10.104.239.2
+ exit
+end
+write memory
+```
+
+### C. Konfigurasi DHCP pada `R-TIMUR`
+```cisco
+enable
+configure terminal
+ip dhcp excluded-address 10.104.128.1 10.104.128.10
+ip dhcp excluded-address 10.104.232.1 10.104.232.10
+ip dhcp pool POOL-WIFI-TIMUR
+ network 10.104.128.0 255.255.224.0
+ default-router 10.104.128.1
+ dns-server 10.104.239.2
+ exit
+ip dhcp pool POOL-SENSOR-BANJIR
+ network 10.104.232.0 255.255.252.0
+ default-router 10.104.232.1
+ dns-server 10.104.239.2
+ exit
+end
+write memory
+```
+
+### D. Konfigurasi DHCP pada `R-SELATAN`
+```cisco
+enable
+configure terminal
+ip dhcp excluded-address 10.104.64.1 10.104.64.10
+ip dhcp excluded-address 10.104.240.129 10.104.240.138
+ip dhcp pool POOL-WIFI-SELATAN
+ network 10.104.64.0 255.255.224.0
+ default-router 10.104.64.1
+ dns-server 10.104.239.2
+ exit
+ip dhcp pool POOL-PJU
+ network 10.104.240.128 255.255.255.128
+ default-router 10.104.240.129
+ dns-server 10.104.239.2
+ exit
+end
+write memory
+```
+
+### E. Konfigurasi DHCP pada `R-BARAT`
+```cisco
+enable
+configure terminal
+ip dhcp excluded-address 10.104.192.1 10.104.192.10
+ip dhcp excluded-address 10.104.238.1 10.104.238.10
+ip dhcp pool POOL-WIFI-BARAT
+ network 10.104.192.0 255.255.224.0
+ default-router 10.104.192.1
+ dns-server 10.104.239.2
+ exit
+ip dhcp pool POOL-PUSKESMAS
+ network 10.104.238.0 255.255.255.0
+ default-router 10.104.238.1
+ dns-server 10.104.239.2
+ exit
+end
+write memory
+```
+
+### F. Konfigurasi DHCP pada `R-PELABUHAN`
+```cisco
+enable
+configure terminal
+ip dhcp excluded-address 10.104.160.1 10.104.160.10
+ip dhcp excluded-address 10.104.240.1 10.104.240.10
+ip dhcp pool POOL-SCADA
+ network 10.104.160.0 255.255.224.0
+ default-router 10.104.160.1
+ dns-server 10.104.239.2
+ exit
+ip dhcp pool POOL-KANTOR
+ network 10.104.240.0 255.255.255.128
+ default-router 10.104.240.1
+ dns-server 10.104.239.2
+ exit
+end
+write memory
+```
+
+---
+
+## 4.5 DHCP Subnet CCTV Kota dari `Server dan Storage DC`
+
+### A. DHCP Relay (`ip helper-address`) pada `R-DC`
+
+Pesan *DHCP Discover* bersifat broadcast sehingga tidak dapat melewati router. Agar `PC CCTV` dapat menerima alamat dari server yang berada di subnet lain (`10.104.239.0/24`), `R-DC` dikonfigurasi sebagai **DHCP Relay Agent** pada interface yang menghadap LAN CCTV (`GigabitEthernet0/0`). Router meneruskan permintaan DHCP tersebut sebagai paket *unicast* ke `Server dan Storage DC`:
+
+```cisco
+enable
+configure terminal
+interface GigabitEthernet0/0
+ ip helper-address 10.104.239.2
+ exit
+end
+write memory
+```
+
+`R-DC` **tidak memiliki DHCP pool**, sehingga alamat seluruh perangkat CCTV dipastikan berasal dari server, bukan dari router.
+
+### B. Konfigurasi DHCP Server pada `Server dan Storage DC`
+
+Layanan DHCP diaktifkan pada `Server dan Storage DC` melalui menu **Services → DHCP** (Service: `On`):
+
+| Parameter | `DHCP-CCTV` | `serverPool` (bawaan) |
+|---|---|---|
+| **Default Gateway** | `10.104.96.1` | `0.0.0.0` |
+| **DNS Server** | `10.104.239.2` | `0.0.0.0` |
+| **Start IP Address** | `10.104.96.11` | `10.104.239.11` |
+| **Subnet Mask** | `255.255.224.0` | `255.255.255.0` |
+| **Maximum Number of Users** | `8180` | `244` |
+
+`serverPool` merupakan pool bawaan Packet Tracer yang tidak dapat dihapus, sehingga *Start IP*-nya digeser ke `.11` agar tidak bentrok dengan IP statis server.
+
+---
+
+## 4.6 Bukti Pengujian Mandiri Soal 4
+
+Seluruh PC klien diubah ke mode DHCP melalui **Desktop → IP Configuration → DHCP**.
+
+### A. Hasil DHCP pada PC Klien
+
+| PC | IP Address | Subnet Mask | Gateway | DNS | Sumber DHCP |
+|---|---|---|---|---|---|
+| `PC PEGAWAI` | `10.104.224.11` | `255.255.248.0` | `10.104.224.1` | `10.104.239.2` | `R-PUSAT` |
+| `PC SELATAN` | `10.104.64.11` | `255.255.224.0` | `10.104.64.1` | `10.104.239.2` | `R-SELATAN` |
+| `PC KANTOR` | `10.104.240.11` | `255.255.255.128` | `10.104.240.1` | `10.104.239.2` | `R-PELABUHAN` |
+| `PC CCTV` | `10.104.96.11` | `255.255.224.0` | `10.104.96.1` | `10.104.239.2` | `Server dan Storage DC` |
+
+Seluruh PC klien lainnya juga berhasil mendapatkan IP sesuai subnet masing-masing, dimulai dari `.11` (atau `.139` untuk PJU Pintar).
+
+- **`PC PEGAWAI` (DHCP dari `R-PUSAT`):**
+  ![DHCP PC PEGAWAI](docs/04-dhcp/no4-pc-pegawai-dhcp.png)
+
+- **`PC SELATAN` (DHCP dari `R-SELATAN`):**
+  ![DHCP PC SELATAN](docs/04-dhcp/no4-pc-selatan-dhcp.png)
+
+- **`PC KANTOR` (DHCP dari `R-PELABUHAN`):**
+  ![DHCP PC KANTOR](docs/04-dhcp/no4-pc-kantor-dhcp.png)
+
+### B. Verifikasi DHCP Relay pada `R-DC`
+
+Perintah `show running-config | include helper` menunjukkan `ip helper-address 10.104.239.2` telah terpasang:
+
+![Helper Address R-DC](docs/04-dhcp/no4-r-dc-helper-address.png)
+
+### C. Verifikasi DHCP Server CCTV pada `Server dan Storage DC`
+
+Pool `DHCP-CCTV` dengan gateway `10.104.96.1`, DNS `10.104.239.2`, dan Start IP `10.104.96.11`:
+
+![DHCP Pool Server DC](docs/04-dhcp/no4-server-dc-dhcp-pool.png)
+
+### D. `PC CCTV` Mendapatkan IP dari `Server dan Storage DC`
+
+`PC CCTV` mendapatkan IP `10.104.96.11` dari pool `DHCP-CCTV`. Karena `R-DC` tidak memiliki DHCP pool, alamat ini terbukti berasal dari server melalui DHCP relay:
+
+![DHCP PC CCTV](docs/04-dhcp/no4-pc-cctv-dhcp.png)
+
+Pengujian `ping 10.104.239.2` dari `PC CCTV` ke `Server dan Storage DC` berhasil dengan `0% loss`:
+
+![Ping PC CCTV ke Server DC](docs/04-dhcp/no4-ping-cctv-ke-server-dc.png)
+
+---
+
+# 5. NAT (Soal 5)
+
+## 5.1 Ketentuan Soal
+
+Sesuai ketentuan soal:
+
+- Seluruh host dapat mengakses server **`8.8.8.8`** menggunakan **satu IP publik milik `R-PUSAT`**.
+- **`R-ISP` tidak boleh memiliki rute ke alamat privat internal.**
+
+## 5.2 Desain NAT Overload (PAT)
+
+NAT yang digunakan adalah **PAT (*Port Address Translation* / NAT Overload)**. Seluruh alamat privat `10.104.0.0/16` diterjemahkan menjadi **satu alamat publik**, yaitu IP interface `Serial0/1/1` milik `R-PUSAT` (**`203.0.113.53`**). Setiap sesi dibedakan menggunakan nomor port, sehingga ribuan host dapat berbagi satu IP publik.
+
+Karena `R-ISP` hanya melihat alamat sumber `203.0.113.53` (*directly connected*), `R-ISP` **tidak memerlukan rute apa pun** menuju jaringan `10.104.0.0/16`.
+
+| Peran | Interface pada `R-PUSAT` |
+|---|---|
+| **NAT Inside** | `GigabitEthernet0/0`, `GigabitEthernet0/1`, `Serial0/1/0`, `Serial0/2/0`, `Serial0/2/1`, `Serial0/3/0`, `Serial0/3/1` |
+| **NAT Outside** | `Serial0/1/1` (menuju `R-ISP`) |
+| **IP Publik (Inside Global)** | `203.0.113.53` |
+| **Alamat yang Diterjemahkan (ACL 1)** | `10.104.0.0/16` |
+
+---
+
+## 5.3 Penyesuaian Link ISP & Penghapusan Rute Privat pada `R-ISP`
+
+Pada tahap awal pengerjaan, link `R-PUSAT` ↔ `R-ISP` masih menggunakan alamat sementara dan `R-ISP` memiliki static route `ip route 10.104.0.0 255.255.0.0` menuju jaringan internal. Konfigurasi disesuaikan dengan ketentuan soal: link menggunakan **`203.0.113.52/30`** ($4 \times K$, $K = 13$) dan rute ke alamat privat pada `R-ISP` dihapus.
+
+### A. Konfigurasi pada `R-ISP`
+```cisco
+enable
+configure terminal
+interface Serial0/3/0
+ ip address 203.0.113.54 255.255.255.252
+ no shutdown
+ exit
+no ip route 10.104.0.0 255.255.0.0 10.104.241.57
+end
+write memory
+```
+
+### B. Konfigurasi pada `R-PUSAT`
+```cisco
+enable
+configure terminal
+interface Serial0/1/1
+ ip address 203.0.113.53 255.255.255.252
+ no shutdown
+ exit
+no ip route 0.0.0.0 0.0.0.0 10.104.241.58
+ip route 0.0.0.0 0.0.0.0 203.0.113.54
+end
+write memory
+```
+
+---
+
+## 5.4 Konfigurasi NAT pada `R-PUSAT`
+
+```cisco
+enable
+configure terminal
+
+! ACL: alamat privat yang boleh diterjemahkan
+access-list 1 permit 10.104.0.0 0.0.255.255
+
+! Interface menuju jaringan internal (LAN Balai Kota & backbone L1-L5)
+interface GigabitEthernet0/0
+ ip nat inside
+ exit
+interface GigabitEthernet0/1
+ ip nat inside
+ exit
+interface Serial0/1/0
+ ip nat inside
+ exit
+interface Serial0/2/0
+ ip nat inside
+ exit
+interface Serial0/2/1
+ ip nat inside
+ exit
+interface Serial0/3/0
+ ip nat inside
+ exit
+interface Serial0/3/1
+ ip nat inside
+ exit
+
+! Interface menuju R-ISP
+interface Serial0/1/1
+ ip nat outside
+ exit
+
+! NAT Overload menggunakan IP Serial0/1/1 (203.0.113.53)
+ip nat inside source list 1 interface Serial0/1/1 overload
+
+end
+write memory
+```
+
+Penjelasan perintah:
+
+| Perintah | Fungsi |
+|---|---|
+| `access-list 1 permit 10.104.0.0 0.0.255.255` | Menentukan alamat sumber yang boleh diterjemahkan (seluruh `10.104.x.x`) |
+| `ip nat inside` | Menandai interface yang menghadap jaringan internal |
+| `ip nat outside` | Menandai interface yang menghadap jaringan luar (`R-ISP`) |
+| `ip nat inside source list 1 interface Serial0/1/1 overload` | Menerjemahkan alamat dalam ACL 1 menjadi IP `Serial0/1/1` menggunakan PAT |
+
+---
+
+## 5.5 Bukti Pengujian Mandiri Soal 5
+
+### A. Pengujian `ping 8.8.8.8` dari Berbagai Wilayah
+
+| PC | Wilayah | Hasil | TTL |
+|---|---|---|---|
+| `PC PEGAWAI` | Balai Kota | Berhasil | `126` |
+| `PC-WIFI-Barat` | Surabaya Barat | Berhasil | `125` |
+| `PC-SCADA-PELABUHAN` | Pelabuhan | Berhasil | `124` |
+
+Paket pertama dapat mengalami *Request timed out* karena proses ARP, sedangkan ping berikutnya berhasil `0% loss`. Perbedaan nilai TTL (TTL awal `128`) menunjukkan jumlah router yang dilewati: Balai Kota melewati 2 router (`R-PUSAT`, `R-ISP`), Barat melewati 3 router, dan Pelabuhan melewati 4 router (`R-PELABUHAN`, `R-UTARA`, `R-PUSAT`, `R-ISP`).
+
+- **`PC PEGAWAI` (Balai Kota):**
+  ![Ping 8.8.8.8 dari PC PEGAWAI](docs/05-nat/no5-ping-8888-pegawai.png)
+
+- **`PC-WIFI-Barat` (Surabaya Barat):**
+  ![Ping 8.8.8.8 dari PC WIFI Barat](docs/05-nat/no5-ping-8888-barat.png)
+
+- **`PC-SCADA-PELABUHAN` (Pelabuhan):**
+  ![Ping 8.8.8.8 dari PC SCADA Pelabuhan](docs/05-nat/no5-ping-8888-scada.png)
+
+### B. Tabel Translasi NAT pada `R-PUSAT` (`show ip nat translations`)
+
+Kolom *Inside local* menunjukkan IP privat host (`10.104.x.x`), sedangkan *Inside global* menunjukkan IP publik hasil translasi (`203.0.113.53`):
+
+![NAT Translations R-PUSAT](docs/05-nat/no5-nat-translations.png)
+
+### C. Tabel Routing `R-ISP` Tanpa Rute ke Alamat Privat (`show ip route`)
+
+```text
+     8.0.0.0/8 is variably subnetted, 2 subnets, 2 masks
+C       8.8.8.0/24 is directly connected, GigabitEthernet0/0
+L       8.8.8.1/32 is directly connected, GigabitEthernet0/0
+     203.0.113.0/24 is variably subnetted, 2 subnets, 2 masks
+C       203.0.113.52/30 is directly connected, Serial0/3/0
+L       203.0.113.54/32 is directly connected, Serial0/3/0
+```
+
+`R-ISP` hanya memiliki rute *directly connected* (`C` dan `L`) dan **tidak memiliki rute ke `10.104.0.0/16`**, namun seluruh host tetap dapat menjangkau `8.8.8.8`. Hal ini membuktikan NAT Overload pada `R-PUSAT` berjalan dengan benar.
+
+![Tabel Routing R-ISP](docs/05-nat/no5-r-isp-ip-route.png)
 
 ---
 
@@ -889,6 +1305,20 @@ MidProject-Jarkom_K-13_070_076_093/
     │   └── topologi-smart-city.jpg
     ├── 02-vlsm/
     │   └── tabel-vlsm.jpg
+    ├── 04-dhcp/
+    │   ├── no4-pc-pegawai-dhcp.png
+    │   ├── no4-pc-selatan-dhcp.png
+    │   ├── no4-pc-kantor-dhcp.png
+    │   ├── no4-r-dc-helper-address.png
+    │   ├── no4-server-dc-dhcp-pool.png
+    │   ├── no4-pc-cctv-dhcp.png
+    │   └── no4-ping-cctv-ke-server-dc.png
+    ├── 05-nat/
+    │   ├── no5-ping-8888-pegawai.png
+    │   ├── no5-ping-8888-barat.png
+    │   ├── no5-ping-8888-scada.png
+    │   ├── no5-nat-translations.png
+    │   └── no5-r-isp-ip-route.png
     ├── 06-gre-tunnel/
     │   ├── no6-r-pusat-tunnel.png
     │   ├── no6-r-pelabuhan-tunnel.png
